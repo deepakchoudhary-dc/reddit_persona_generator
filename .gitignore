@@ -45,6 +45,7 @@ Thumbs.db
 # Output files
 output/*.txt
 *.txt
+!requirements.txt
 
 # Distribution / packaging
 .Python
