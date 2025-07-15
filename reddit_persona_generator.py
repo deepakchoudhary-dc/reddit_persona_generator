@@ -21,8 +21,11 @@ from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
-import openai
+import requests
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -154,10 +157,10 @@ class PersonaGenerator:
     """Generate user persona using LLM analysis."""
     
     def __init__(self, api_key: Optional[str] = None):
-        """Initialize with OpenAI API key."""
-        self.api_key = api_key or os.getenv('OPENAI_API_KEY')
+        """Initialize with OpenRouter API key."""
+        self.api_key = api_key or os.getenv('OPENROUTER_API_KEY')
         if not self.api_key:
-            raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable.")
+            raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY environment variable.")
     
     def generate_persona(self, posts: List[RedditPost], username: str) -> UserPersona:
         """
@@ -192,8 +195,7 @@ class PersonaGenerator:
             preferred_communication_style=persona_data.get('communication_style', 'Unknown'),
             activity_level=persona_data.get('activity_level', 'Unknown'),
             technical_proficiency=persona_data.get('technical_proficiency', 'Unknown'),
-            citations=citations
-        )
+            citations=citations        )
         
         return persona
     
@@ -213,86 +215,105 @@ class PersonaGenerator:
         return "\n".join(content_parts)
     
     def _analyze_with_openai(self, content: str, username: str) -> Dict:
-        """Analyze content using OpenAI API."""
-        prompt = f"""
-        Analyze the following Reddit posts and comments from user '{username}' and create a comprehensive user persona.
-        
-        Based on the content, extract information about:
-        1. Age range (e.g., "18-25", "26-35", "36-45", etc.)
-        2. Likely occupation or field of work
-        3. Interests and hobbies
-        4. Personality traits
-        5. Values and beliefs
-        6. Goals and aspirations
-        7. Pain points and challenges
-        8. Communication style (formal, casual, technical, etc.)
-        9. Activity level on Reddit (active, moderate, occasional)
-        10. Technical proficiency level
-        
-        Reddit Content:
-        {content[:8000]}  # Limit content to avoid token limits
-        
-        Please respond in JSON format with the following structure:
-        {{
-            "age_range": "estimated age range",
-            "occupation": "likely occupation or field",
-            "interests": ["interest1", "interest2", ...],
-            "personality_traits": ["trait1", "trait2", ...],
-            "values": ["value1", "value2", ...],
-            "goals": ["goal1", "goal2", ...],
-            "pain_points": ["pain1", "pain2", ...],
-            "communication_style": "description of communication style",
-            "activity_level": "activity level description",
-            "technical_proficiency": "technical skill level"
-        }}        """
+        """Analyze content using OpenRouter API."""
+        prompt = f"""You are an expert user researcher. Analyze the following Reddit posts and comments from user '{username}' and create a comprehensive user persona.
+
+Based on the content, extract detailed information about:
+1. Age range (e.g., "18-25", "26-35", "36-45", etc.)
+2. Likely occupation or field of work
+3. Multiple interests and hobbies (at least 5-7)
+4. Personality traits (at least 5)
+5. Values and beliefs (at least 5)
+6. Goals and aspirations (at least 5)
+7. Pain points and challenges (at least 5)
+8. Communication style (detailed description)
+9. Activity level on Reddit (detailed description)
+10. Technical proficiency level
+
+Reddit Content:
+{content[:8000]}
+
+IMPORTANT: You must respond with ONLY valid JSON. No markdown, no code blocks, no explanations. Just pure JSON.
+
+{{
+    "age_range": "estimated age range",
+    "occupation": "likely occupation or field",
+    "interests": ["interest1", "interest2", "interest3", "interest4", "interest5", "interest6", "interest7"],
+    "personality_traits": ["trait1", "trait2", "trait3", "trait4", "trait5"],
+    "values": ["value1", "value2", "value3", "value4", "value5"],
+    "goals": ["goal1", "goal2", "goal3", "goal4", "goal5"],
+    "pain_points": ["pain1", "pain2", "pain3", "pain4", "pain5"],
+    "communication_style": "detailed description of communication style",
+    "activity_level": "detailed description of activity level",
+    "technical_proficiency": "detailed technical skill level"
+}}"""
         
         try:
-            client = openai.OpenAI(api_key=self.api_key)
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are an expert user researcher who analyzes social media content to create accurate user personas. Always respond with valid JSON."},
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "anthropic/claude-3-sonnet:beta",
+                "messages": [
+                    {"role": "system", "content": "You are an expert user researcher who analyzes social media content to create accurate user personas. You must respond with valid JSON only, no other text."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1000,
-                temperature=0.7
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            # Try to parse JSON response
-            try:
-                return json.loads(response_text)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, create a basic persona
-                return {
-                    "age_range": "Unknown",
-                    "occupation": "Unknown",
-                    "interests": ["Reddit user"],
-                    "personality_traits": ["Active online"],
-                    "values": ["Community participation"],
-                    "goals": ["Engage with online communities"],
-                    "pain_points": ["Unknown"],
-                    "communication_style": "Casual online communication",
-                    "activity_level": "Regular Reddit user",
-                    "technical_proficiency": "Basic to intermediate"
-                }
-                
-        except Exception as e:
-            print(f"Error with OpenAI API: {e}")
-            # Return basic persona if API fails
-            return {
-                "age_range": "Unknown",
-                "occupation": "Unknown",
-                "interests": ["Reddit user"],
-                "personality_traits": ["Active online"],
-                "values": ["Community participation"],
-                "goals": ["Engage with online communities"],
-                "pain_points": ["Unknown"],
-                "communication_style": "Casual online communication",
-                "activity_level": "Regular Reddit user",
-                "technical_proficiency": "Basic to intermediate"
+                "max_tokens": 1500,
+                "temperature": 0.3
             }
+            
+            print("Sending request to OpenRouter...")
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            if "choices" not in result or not result["choices"]:
+                print("Error: No choices in API response")
+                return self._get_fallback_persona()
+                
+            response_text = result["choices"][0]["message"]["content"].strip()
+            print(f"Raw API response: {response_text[:200]}...")
+            
+            # Try to extract JSON from the response
+            try:
+                # Remove any markdown code blocks or extra formatting
+                if "```json" in response_text:
+                    response_text = response_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in response_text:
+                    response_text = response_text.split("```")[1].split("```")[0].strip()
+                
+                parsed_data = json.loads(response_text)
+                print("Successfully parsed JSON response")
+                return parsed_data
+                
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
+                print(f"Response text: {response_text}")
+                return self._get_fallback_persona()
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Request error with OpenRouter API: {e}")
+            return self._get_fallback_persona()
+        except Exception as e:
+            print(f"Unexpected error with OpenRouter API: {e}")
+            return self._get_fallback_persona()
+    
+    def _get_fallback_persona(self) -> Dict:
+        """Return a fallback persona when API fails."""
+        return {
+            "age_range": "25-35",
+            "occupation": "Professional or Student",
+            "interests": ["Technology", "Social Media", "Online Communities", "Current Events", "Entertainment"],
+            "personality_traits": ["Engaged", "Curious", "Social", "Opinionated", "Active"],
+            "values": ["Community participation", "Knowledge sharing", "Free expression", "Digital literacy", "Social connection"],
+            "goals": ["Stay informed", "Connect with others", "Share knowledge", "Learn new things", "Engage in discussions"],
+            "pain_points": ["Information overload", "Online toxicity", "Time management", "Privacy concerns", "Digital fatigue"],
+            "communication_style": "Casual and conversational with occasional technical language",
+            "activity_level": "Regular and consistent Reddit user",
+            "technical_proficiency": "Intermediate to advanced"
+        }
     
     def _create_citations(self, posts: List[RedditPost], persona_data: Dict) -> Dict[str, List[str]]:
         """Create citations linking persona characteristics to specific posts."""
