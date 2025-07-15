@@ -5,7 +5,7 @@ A Python script that analyzes Reddit user profiles to generate comprehensive use
 ## Features
 
 - **Profile Analysis**: Scrapes Reddit user posts and comments
-- **AI-Powered Insights**: Uses OpenAI's GPT models to analyze content
+- **AI-Powered Insights**: Uses OpenAI's GPT models to analyze content. Here in project I used OpenRouter API key to test.
 - **Comprehensive Personas**: Generates detailed user personas with demographics, interests, personality traits, values, goals, and pain points
 - **Citation System**: Links each persona characteristic to specific posts/comments as evidence
 - **Flexible Output**: Saves personas as formatted text files
@@ -14,7 +14,7 @@ A Python script that analyzes Reddit user profiles to generate comprehensive use
 ## Prerequisites
 
 - Python 3.7 or higher
-- OpenAI API key (required for persona generation)
+- OpenAI API key (required for persona generation) or Any API key favoured
 - Internet connection for Reddit scraping
 
 ## Installation
